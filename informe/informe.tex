@@ -1,0 +1,626 @@
+\documentclass[11pt,letterpaper]{article}
+
+% ------------------------------------------------------------
+% Paquetes
+% ------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla,es-noshorthands,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+% ------------------------------------------------------------
+% Configuración general
+% ------------------------------------------------------------
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Análisis y Diseño de Algoritmos II}
+\rhead{Proyecto ModEx}
+\cfoot{\thepage}
+
+\floatname{algorithm}{Algoritmo}
+\renewcommand{\listalgorithmname}{Lista de algoritmos}
+\algrenewcommand\algorithmicrequire{\textbf{Entrada:}}
+\algrenewcommand\algorithmicensure{\textbf{Salida:}}
+
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!50!black}\itshape,
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  breaklines=true,
+  showstringspaces=false,
+  tabsize=4,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1 {ñ}{{\~n}}1
+}
+
+% Marcador para las secciones pendientes de redactar
+\newcommand{\introducirtexto}{%
+  \par\noindent\fcolorbox{red!70!black}{red!5}{%
+    \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{%
+      \centering\vspace{0.4em}\textbf{\color{red!70!black}INTRODUCIR TEXTO}\vspace{0.4em}}}\par}
+
+% Notación del problema
+\newcommand{\RS}{\mathit{RS}}
+\newcommand{\Rmax}{R_{\max}}
+\newcommand{\Ext}{\operatorname{Ext}}
+\newcommand{\Esf}{\operatorname{Esfuerzo}}
+\newcommand{\Mod}{\operatorname{Mod}}
+
+% ------------------------------------------------------------
+% Documento
+% ------------------------------------------------------------
+\begin{document}
+
+% ------------------------------------------------------------
+% Portada
+% ------------------------------------------------------------
+\begin{titlepage}
+  \centering
+  \vspace*{1cm}
+  {\large Universidad del Valle\par}
+  {\large Escuela de Ingeniería de Sistemas y Computación\par}
+  \vspace{0.5cm}
+  {\large Análisis y Diseño de Algoritmos II\par}
+  \vspace{3cm}
+  {\Huge\bfseries Moderando el extremismo de opiniones en una red social\par}
+  \vspace{0.8cm}
+  {\Large Proyecto de curso -- Informe\par}
+  \vspace{3cm}
+  {\large\textbf{Integrantes}\par}
+  \vspace{0.3cm}
+  \begin{tabular}{ll}
+    Santiago Arias Rojas        & 2416285 \\
+    Sebastián Calvo Carvajal    & \rule{2cm}{0.4pt} \\
+    Sebastián Rubio Piedrahita  & \rule{2cm}{0.4pt} \\
+  \end{tabular}
+  \vfill
+  {\large\textbf{Profesor:} Jesús Alexander Aranda\par}
+  {\large\textbf{Monitor:} Samuel Galindo\par}
+  \vspace{1cm}
+  {\large Noviembre de 2026\par}
+\end{titlepage}
+
+% ------------------------------------------------------------
+% Tabla de contenido
+% ------------------------------------------------------------
+\tableofcontents
+\newpage
+\listoftables
+\listofalgorithms
+\newpage
+
+% ============================================================
+\section{Introducción}
+% ============================================================
+
+El presente informe documenta el desarrollo del proyecto de curso de
+Análisis y Diseño de Algoritmos II, cuyo objetivo es aplicar y comparar tres
+estrategias de diseño de algoritmos ---fuerza bruta, algoritmos voraces y
+programación dinámica--- sobre un mismo problema de naturaleza combinatoria:
+el problema de \emph{moderar el extremismo de opiniones en una red social}
+(ModEx).
+
+Para cada estrategia se describe el algoritmo diseñado, se analiza su
+complejidad temporal (y espacial cuando aplica) y se argumenta si conduce o no
+a una solución óptima. Finalmente se comparan experimentalmente las tres
+soluciones implementadas y se concluye sobre las ventajas y desventajas de
+utilizar cada enfoque en la práctica.
+
+El documento se organiza así: la Sección~\ref{sec:problema} presenta y
+formaliza el problema; las Secciones~\ref{sec:fb}, \ref{sec:voraz} y
+\ref{sec:pd} desarrollan las soluciones por fuerza bruta, voraz y programación
+dinámica, respectivamente; la Sección~\ref{sec:implementacion} describe la
+implementación; la Sección~\ref{sec:comparacion} compara los resultados
+obtenidos y la Sección~\ref{sec:conclusiones} presenta las conclusiones.
+
+% ============================================================
+\section{El problema ModEx}
+\label{sec:problema}
+% ============================================================
+
+\subsection{Descripción}
+
+Se considera una red social formada por $n$ agentes, cada uno con una opinión
+respecto a una afirmación sobre un tema. La opinión se cuantifica como un
+entero entre $-100$ (totalmente desfavorable) y $100$ (completamente
+favorable); entre más cercana a $0$ esté la opinión, más moderada es, y entre
+más alejada de $0$, más extrema.
+
+Cada agente posee además:
+\begin{itemize}
+  \item Un nivel de \textbf{receptividad} $r_i \in [0,1]$, que modela qué tan
+        fácil es moderar su opinión ($1$: muy fácil, $0$: muy difícil).
+  \item Un nivel de \textbf{influencia} $\mathit{inf}_i \in [1,3]$, que modela el
+        impacto de su opinión en la red.
+\end{itemize}
+
+Moderar la opinión de un agente requiere invertir un esfuerzo que depende de
+su opinión, su receptividad y su influencia. La red cuenta con un valor
+máximo $\Rmax$ de esfuerzo disponible. El problema consiste en decidir sobre
+cuáles agentes concentrar los esfuerzos de moderación para reducir lo más
+posible el extremismo de la red sin superar $\Rmax$.
+
+\subsection{Formalización}
+
+Una red social $\RS$ es una pareja $\langle AG, \Rmax \rangle$, donde
+$AG = \langle a_0, \dots, a_{n-1} \rangle$ es una secuencia de agentes y
+$\Rmax \in \mathbb{N}$ es el valor entero máximo disponible para moderar.
+Cada agente es una terna
+$a_i = \langle o_i, r_i, \mathit{inf}_i \rangle$ con
+$o_i \in \{-100,\dots,100\}$, $r_i \in [0,1]$ y $1 \le \mathit{inf}_i \le 3$.
+
+\paragraph{Extremismo.} El extremismo de una red se define como
+\begin{equation}
+  \Ext(\RS) = \frac{\sqrt{\sum_{i=0}^{n-1} o_i^2 \cdot \mathit{inf}_i}}{n}.
+  \label{eq:ext}
+\end{equation}
+
+\paragraph{Estrategia de moderación.} Es una secuencia
+$E = \langle e_0, \dots, e_{n-1} \rangle$ con $e_i \in \{0,1\}$, donde
+$e_i = 1$ indica que la opinión del agente $a_i$ se modera y $e_i = 0$ que no.
+
+\paragraph{Aplicación de una estrategia.} $\Mod(\RS, E) = \RS'$ es la red con
+la misma estructura de $\RS$ en la que
+\[
+  o'_i =
+  \begin{cases}
+    o_i & \text{si } e_i = 0,\\
+    0   & \text{si } e_i = 1.
+  \end{cases}
+\]
+
+\paragraph{Esfuerzo.} El esfuerzo de moderar $\RS$ con la estrategia $E$ es
+\begin{equation}
+  \Esf(\RS, E) = \sum_{i=0}^{n-1}
+  \left\lceil |o_i - o'_i| \cdot (1 - r_i) \cdot \mathit{inf}_i \right\rceil .
+  \label{eq:esf}
+\end{equation}
+Una estrategia es \emph{aplicable} si y solo si $\Esf(\RS, E) \le \Rmax$.
+
+\paragraph{Problema ModEx.}
+\begin{description}[leftmargin=2cm]
+  \item[Entrada:] una red social $\RS = \langle AG, \Rmax \rangle$.
+  \item[Salida:] una estrategia de moderación $E$ aplicable tal que
+        $\Ext(\Mod(\RS, E))$ sea mínimo.
+\end{description}
+
+\subsection{Ejemplos}
+\label{sec:ejemplos}
+
+\subsubsection*{Ejemplo 1}
+$\RS_1 = (\langle\langle 100, 0.5, 1\rangle, \langle 100, 0.1, 1\rangle,
+\langle -10, 0.1, 1\rangle\rangle, 55)$.
+
+\begin{itemize}
+  \item $E_1 = \langle 0,0,1 \rangle$:
+        $\Esf = \lceil 10 \cdot 0.9 \cdot 1 \rceil = 9 \le 55$ (aplicable) y
+        $\Ext = \sqrt{100^2 + 100^2 + 0^2}/3 \approx 47.14$.
+  \item $E_2 = \langle 1,0,0 \rangle$:
+        $\Esf = \lceil 100 \cdot 0.5 \cdot 1 \rceil = 50 \le 55$ (aplicable) y
+        $\Ext = \sqrt{0^2 + 100^2 + (-10)^2}/3 \approx 33.50$.
+\end{itemize}
+
+\subsubsection*{Ejemplo 2}
+$\RS_2 = (\langle\langle -30, 0.9, 1\rangle, \langle 20, 0.1, 2\rangle,
+\langle 50, 0.5, 1\rangle\rangle, 35)$.
+
+\begin{itemize}
+  \item $E_1 = \langle 0,1,0 \rangle$:
+        $\Esf = \lceil 20 \cdot 0.9 \cdot 2 \rceil = 36 > 35$, por lo que
+        \emph{no} es aplicable.
+  \item $E_2 = \langle 1,0,1 \rangle$:
+        $\Esf = \lceil 30 \cdot 0.1 \cdot 1 \rceil + \lceil 50 \cdot 0.5 \cdot 1 \rceil
+        = 28 \le 35$ (aplicable) y
+        $\Ext = \sqrt{0^2 + 20^2 \cdot 2 + 0^2}/3 \approx 9.43$.
+\end{itemize}
+
+% ============================================================
+\section{Solución por fuerza bruta}
+\label{sec:fb}
+% ============================================================
+
+\subsection{Descripción del algoritmo}
+
+El algoritmo de fuerza bruta genera todas las estrategias de moderación
+posibles ---es decir, todas las secuencias binarias de longitud $n$---, calcula
+para cada una su esfuerzo y el extremismo de la red moderada, descarta las que
+no son aplicables y, entre las aplicables, retorna la de menor extremismo.
+
+La generación de estrategias se hace recursivamente: las estrategias de
+longitud $n$ se obtienen anteponiendo un $1$ y un $0$ a cada una de las
+estrategias de longitud $n-1$, con caso base la secuencia vacía.
+
+\begin{algorithm}[H]
+  \caption{Generación de todas las estrategias}
+  \label{alg:generar}
+  \begin{algorithmic}[1]
+    \Function{GenerarEstrategias}{$n$}
+      \If{$n \le 0$}
+        \State \Return $[\,[\,]\,]$
+      \EndIf
+      \State $S \gets$ \Call{GenerarEstrategias}{$n-1$}
+      \State \Return $\{\, [1] + s : s \in S \,\} \cup \{\, [0] + s : s \in S \,\}$
+    \EndFunction
+  \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+  \caption{ModEx por fuerza bruta}
+  \label{alg:fb}
+  \begin{algorithmic}[1]
+    \Require Red social $\RS = \langle AG, \Rmax \rangle$ con $n$ agentes
+    \Ensure $(E^*, \Esf(\RS,E^*), \Ext(\Mod(\RS,E^*)))$
+    \State $E^* \gets \textsc{nil}$;\quad $\mathit{mejorExt} \gets \infty$;\quad $\mathit{mejorEsf} \gets 0$
+    \ForAll{$E \in$ \Call{GenerarEstrategias}{$n$}}
+      \State $\mathit{esf} \gets \Esf(\RS, E)$
+      \State $\mathit{ext} \gets \Ext(\Mod(\RS, E))$
+      \If{$\mathit{esf} \le \Rmax$ \textbf{and} $\mathit{ext} < \mathit{mejorExt}$}
+        \State $E^* \gets E$;\quad $\mathit{mejorExt} \gets \mathit{ext}$;\quad $\mathit{mejorEsf} \gets \mathit{esf}$
+      \EndIf
+    \EndFor
+    \State \Return $(E^*, \mathit{mejorEsf}, \mathit{mejorExt})$
+  \end{algorithmic}
+\end{algorithm}
+
+\subsection{Complejidad}
+
+\paragraph{Generación de estrategias.} Sea $G(n)$ el costo de
+\textsc{GenerarEstrategias}$(n)$. La llamada recursiva retorna $2^{n-1}$
+listas de longitud $n-1$, y construir las $2^n$ nuevas listas de longitud $n$
+cuesta $\Theta(n \cdot 2^n)$. Así,
+\[
+  G(n) = G(n-1) + \Theta(n \cdot 2^n)
+  \quad\Longrightarrow\quad
+  G(n) = \sum_{k=1}^{n} \Theta(k \cdot 2^k) = \Theta(n \cdot 2^n).
+\]
+
+\paragraph{Evaluación.} Hay $2^n$ estrategias, y para cada una el cálculo del
+esfuerzo (Ecuación~\ref{eq:esf}) y del extremismo (Ecuación~\ref{eq:ext})
+recorre los $n$ agentes realizando operaciones de costo constante, es decir,
+$\Theta(n)$ por estrategia y $\Theta(n \cdot 2^n)$ en total.
+
+\paragraph{Total.} La complejidad temporal del algoritmo es
+\[
+  T(n) = \Theta(n \cdot 2^n).
+\]
+
+\paragraph{Espacio.} Como la implementación materializa todas las estrategias
+en memoria antes de evaluarlas, la complejidad espacial también es
+$\Theta(n \cdot 2^n)$. Esta podría reducirse a $\Theta(n)$ generando las
+estrategias una a una (por ejemplo, con un generador o recorriendo los
+enteros de $0$ a $2^n - 1$ en binario), sin alterar la complejidad temporal.
+
+\subsection{Corrección}
+
+El algoritmo siempre da la respuesta correcta al problema:
+
+\begin{enumerate}
+  \item \textbf{Exhaustividad.} El espacio de soluciones de ModEx es el
+        conjunto $\{0,1\}^n$ de todas las estrategias. Por inducción sobre $n$,
+        \textsc{GenerarEstrategias}$(n)$ produce exactamente las $2^n$
+        secuencias binarias de longitud $n$: para $n=0$ produce la secuencia
+        vacía, y si para $n-1$ produce todas las secuencias de longitud $n-1$,
+        al anteponer $0$ y $1$ a cada una se obtienen todas las de longitud $n$,
+        sin repeticiones.
+  \item \textbf{Factibilidad.} Solo se acepta una estrategia como candidata si
+        $\Esf(\RS,E) \le \Rmax$, por lo que la estrategia retornada siempre es
+        aplicable.
+  \item \textbf{Existencia.} La estrategia $\langle 0,\dots,0 \rangle$ tiene
+        esfuerzo $0 \le \Rmax$, de modo que siempre existe al menos una
+        estrategia aplicable y el algoritmo nunca retorna \textsc{nil}.
+  \item \textbf{Optimalidad.} Se mantiene el invariante de que, tras procesar
+        un subconjunto de estrategias, $E^*$ es la de menor extremismo entre las
+        aplicables procesadas. Al terminar el recorrido se han procesado todas,
+        luego $E^*$ minimiza $\Ext(\Mod(\RS,E))$ sobre todas las estrategias
+        aplicables.
+\end{enumerate}
+
+En caso de empate en el extremismo, el algoritmo conserva la primera
+estrategia encontrada, lo cual no afecta la optimalidad.
+
+\subsection{Resultados sobre los ejemplos}
+
+La Tabla~\ref{tab:fb-ejemplos} muestra la salida del algoritmo de fuerza bruta
+para los ejemplos de la Sección~\ref{sec:ejemplos}. Al ser exhaustivo, estos
+valores corresponden a las soluciones óptimas y sirven como referencia para
+evaluar las demás estrategias.
+
+\begin{table}[H]
+  \centering
+  \caption{Salida del algoritmo de fuerza bruta sobre los ejemplos del enunciado}
+  \label{tab:fb-ejemplos}
+  \begin{tabular}{lccc}
+    \toprule
+    Entrada & $E^*$ & $\Esf(\RS,E^*)$ & $\Ext(\Mod(\RS,E^*))$ \\
+    \midrule
+    $\RS_1$ & $\langle 1,0,0 \rangle$ & 50 & 33.50 \\
+    $\RS_2$ & $\langle 1,0,1 \rangle$ & 28 & 9.43 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ============================================================
+\section{Solución voraz}
+\label{sec:voraz}
+% ============================================================
+
+\subsection{Descripción del algoritmo}
+\introducirtexto
+
+\subsection{Entendimos el algoritmo}
+\label{sec:voraz-entendimos}
+
+\subsubsection{Ejemplos del enunciado}
+\introducirtexto
+
+\subsubsection{Entradas adicionales}
+\introducirtexto
+
+\begin{table}[H]
+  \centering
+  \caption{Resultados del algoritmo voraz frente a la solución óptima}
+  \label{tab:voraz-entradas}
+  \begin{tabular}{lcccccc}
+    \toprule
+    \multirow{2}{*}{Entrada} & \multicolumn{3}{c}{Voraz} & \multicolumn{2}{c}{Óptimo} & \multirow{2}{*}{¿Óptima?} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){5-6}
+     & $E$ & Esf. & Ext. & Esf. & Ext. & \\
+    \midrule
+    $\RS_1$ & -- & -- & -- & 50 & 33.50 & -- \\
+    $\RS_2$ & -- & -- & -- & 28 & 9.43  & -- \\
+    $\RS_3$ & -- & -- & -- & -- & --    & -- \\
+    $\RS_4$ & -- & -- & -- & -- & --    & -- \\
+    $\RS_5$ & -- & -- & -- & -- & --    & -- \\
+    $\RS_6$ & -- & -- & -- & -- & --    & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Complejidad}
+\introducirtexto
+
+\subsection{Corrección}
+\introducirtexto
+
+% ============================================================
+\section{Solución por programación dinámica}
+\label{sec:pd}
+% ============================================================
+
+\subsection{Caracterización de la estructura de una solución óptima}
+\introducirtexto
+
+\subsection{Definición recursiva del valor de una solución óptima}
+\introducirtexto
+
+\subsection{Algoritmo para calcular el costo de una solución óptima}
+\introducirtexto
+
+\subsection{Algoritmo para calcular una solución óptima}
+\introducirtexto
+
+\subsection{Complejidad}
+
+\subsubsection{Complejidad en tiempo}
+\introducirtexto
+
+\subsubsection{Complejidad en espacio}
+\introducirtexto
+
+\subsubsection{¿Es útil en la práctica?}
+\introducirtexto
+
+% ============================================================
+\section{Implementación}
+\label{sec:implementacion}
+% ============================================================
+
+\subsection{Lenguaje y estructura del proyecto}
+
+El proyecto se implementó en Python~3. El código fuente se organiza así:
+
+\begin{itemize}
+  \item \texttt{agente.py}: clase \texttt{Agente}, que encapsula la opinión,
+        la receptividad y la influencia de un agente. Si no se suministran
+        valores, se generan aleatoriamente dentro de los rangos del problema
+        (útil para generar casos de prueba).
+  \item \texttt{red.py}: clase \texttt{Red}, que representa la red social
+        $\langle AG, \Rmax \rangle$ y calcula el extremismo de la red,
+        opcionalmente tras aplicar una estrategia de moderación.
+  \item \texttt{estrategias/fuerzabruta.py}: solución por fuerza bruta
+        (cálculo del esfuerzo, generación de estrategias y búsqueda
+        exhaustiva).
+  \item \texttt{estrategias/voraz.py}: solución voraz.
+  \item \texttt{estrategias/dinamica.py}: solución por programación dinámica.
+  \item \texttt{pruebas.py}: casos de prueba.
+  \item \texttt{main.py}: punto de entrada del programa.
+\end{itemize}
+
+\subsection{Formato de entrada y salida}
+
+\paragraph{Entrada.} Archivo de texto con $n+2$ líneas: la primera contiene
+$n$; las siguientes $n$ contienen \texttt{op,recep,inf} de cada agente; la
+última contiene $\Rmax$.
+
+\begin{lstlisting}[language={},numbers=none,caption={Formato del archivo de entrada}]
+n
+op0,recep0,inf0
+...
+op(n-1),recep(n-1),inf(n-1)
+R_max
+\end{lstlisting}
+
+\paragraph{Salida.} Archivo de texto con $n+2$ líneas: la primera contiene el
+extremismo de la red moderada, la segunda el esfuerzo de la estrategia y las
+$n$ restantes indican si cada agente fue moderado ($1$) o no ($0$).
+
+\begin{lstlisting}[language={},numbers=none,caption={Formato del archivo de salida}]
+Ext
+Esf
+mod0
+...
+mod(n-1)
+\end{lstlisting}
+
+\subsection{Interfaz}
+\introducirtexto
+
+% ============================================================
+\section{Comparación de resultados}
+\label{sec:comparacion}
+% ============================================================
+
+\subsection{Diseño de los casos de prueba}
+
+Los casos de prueba se diseñaron para cubrir tanto situaciones típicas como
+casos borde del problema:
+
+\begin{itemize}
+  \item \textbf{Ejemplos del enunciado} ($\RS_1$ y $\RS_2$), cuyos resultados
+        pueden verificarse a mano.
+  \item \textbf{Presupuesto nulo} ($\Rmax = 0$): solo pueden moderarse
+        agentes cuyo esfuerzo sea $0$.
+  \item \textbf{Receptividad máxima} ($r_i = 1$): moderar al agente no cuesta
+        esfuerzo, por lo que debería moderarse siempre.
+  \item \textbf{Receptividad mínima} ($r_i = 0$): el esfuerzo es máximo para
+        la opinión e influencia del agente.
+  \item \textbf{Presupuesto holgado}: $\Rmax$ suficiente para moderar a
+        todos los agentes, en cuyo caso el extremismo óptimo es $0$.
+  \item \textbf{Presupuesto ajustado}: $\Rmax$ igual o una unidad por debajo
+        del esfuerzo de una estrategia candidata, para verificar el manejo de
+        la restricción $\Esf(\RS,E) \le \Rmax$ y del redondeo hacia arriba.
+\end{itemize}
+
+La Tabla~\ref{tab:casos} resume los casos diseñados.
+
+\begin{table}[H]
+  \centering
+  \caption{Casos de prueba diseñados}
+  \label{tab:casos}
+  \begin{tabular}{clc>{\raggedright\arraybackslash}p{5cm}}
+    \toprule
+    Caso & Agentes $\langle o_i, r_i, \mathit{inf}_i \rangle$ & $\Rmax$ & Propósito \\
+    \midrule
+    1 & $\langle 100,0.5,1\rangle, \langle 100,0.1,1\rangle, \langle -10,0.1,1\rangle$ & 55  & Ejemplo 1 del enunciado \\
+    2 & $\langle -30,0.9,1\rangle, \langle 20,0.1,2\rangle, \langle 50,0.5,1\rangle$   & 35  & Ejemplo 2 del enunciado \\
+    3 & $\langle 50,0.5,1\rangle, \langle -40,0.2,2\rangle, \langle 10,0.9,3\rangle$   & 0   & Presupuesto nulo \\
+    4 & $\langle 100,1,3\rangle, \langle -100,1,3\rangle$                              & 0   & Receptividad máxima \\
+    5 & $\langle 40,0.5,2\rangle, \langle 30,0,1\rangle$                               & 40  & Presupuesto exacto \\
+    6 & $\langle 90,0,1\rangle, \langle -60,0.5,3\rangle$                              & 90  & Receptividad mínima \\
+    7 & $\langle 7,0.3,1.5\rangle, \langle 5,0.8,1\rangle$                             & 8   & Redondeo del esfuerzo \\
+    8 & $\langle 7,0.3,1.5\rangle, \langle 5,0.8,1\rangle$                             & 7   & Presupuesto una unidad menor \\
+    9 & $\langle -100,0.2,3\rangle, \langle 80,0.6,2\rangle, \langle -20,0,1.2\rangle$ & 500 & Presupuesto holgado \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Resultados}
+
+La Tabla~\ref{tab:comparacion} compara el extremismo obtenido por cada
+estrategia en los casos de prueba. Los valores de fuerza bruta corresponden al
+óptimo.
+
+\begin{table}[H]
+  \centering
+  \caption{Comparación de las soluciones obtenidas por cada estrategia}
+  \label{tab:comparacion}
+  \begin{tabular}{cccccccc}
+    \toprule
+    \multirow{2}{*}{Caso} & \multicolumn{3}{c}{Fuerza bruta} & \multicolumn{2}{c}{Voraz} & \multicolumn{2}{c}{Prog. dinámica} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+     & $E$ & Esf. & Ext. & Esf. & Ext. & Esf. & Ext. \\
+    \midrule
+    1 & $\langle 1,0,0\rangle$ & 50  & 33.50 & -- & -- & -- & -- \\
+    2 & $\langle 1,0,1\rangle$ & 28  & 9.43  & -- & -- & -- & -- \\
+    3 & $\langle 0,0,0\rangle$ & 0   & 25.82 & -- & -- & -- & -- \\
+    4 & $\langle 1,1\rangle$   & 0   & 0.00  & -- & -- & -- & -- \\
+    5 & $\langle 1,0\rangle$   & 40  & 15.00 & -- & -- & -- & -- \\
+    6 & $\langle 0,1\rangle$   & 90  & 45.00 & -- & -- & -- & -- \\
+    7 & $\langle 1,0\rangle$   & 8   & 2.50  & -- & -- & -- & -- \\
+    8 & $\langle 0,1\rangle$   & 1   & 4.29  & -- & -- & -- & -- \\
+    9 & $\langle 1,1,1\rangle$ & 328 & 0.00  & -- & -- & -- & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Tiempos de ejecución}
+
+La Tabla~\ref{tab:tiempos} muestra el tiempo de ejecución de cada estrategia
+para redes generadas aleatoriamente de distintos tamaños.
+
+\begin{table}[H]
+  \centering
+  \caption{Tiempo de ejecución (en segundos) según el número de agentes}
+  \label{tab:tiempos}
+  \begin{tabular}{cccc}
+    \toprule
+    $n$ & Fuerza bruta & Voraz & Prog. dinámica \\
+    \midrule
+    5   & -- & -- & -- \\
+    10  & -- & -- & -- \\
+    15  & -- & -- & -- \\
+    20  & -- & -- & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Análisis}
+\introducirtexto
+
+% ============================================================
+\section{Conclusiones}
+\label{sec:conclusiones}
+% ============================================================
+
+\paragraph{Fuerza bruta.} Su principal ventaja es la simplicidad: es fácil de
+implementar, de entender y de demostrar correcta, pues siempre encuentra la
+solución óptima. Por ello resulta muy útil como referencia para validar las
+demás estrategias. Su gran desventaja es la complejidad exponencial
+$\Theta(n \cdot 2^n)$, tanto en tiempo como en espacio en nuestra
+implementación, que la hace impracticable para redes con más de unas pocas
+decenas de agentes.
+
+\paragraph{Algoritmo voraz.}
+\introducirtexto
+
+\paragraph{Programación dinámica.}
+\introducirtexto
+
+\paragraph{Comparación general.}
+\introducirtexto
+
+% ------------------------------------------------------------
+% Referencias
+% ------------------------------------------------------------
+\begin{thebibliography}{9}
+  \bibitem{cormen}
+    T.~H. Cormen, C.~E. Leiserson, R.~L. Rivest y C.~Stein.
+    \emph{Introduction to Algorithms}, 4.ª ed. MIT Press, 2022.
+  \bibitem{enunciado}
+    J.~A. Aranda y S.~Galindo.
+    \emph{Proyecto de curso: Moderando el extremismo de opiniones en una red social}.
+    Análisis y Diseño de Algoritmos II, Universidad del Valle, 2026.
+\end{thebibliography}
+
+\end{document}

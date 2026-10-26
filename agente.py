@@ -3,7 +3,7 @@ import random
 class Agente:
 
     def __init__(self, opinion=None, receptividad=None, influencia=None):
-        if opinion == None:
+        if opinion == None or receptividad == None or influencia == None:
             self.opinion = random.randint(-100, 100)
             self.receptividad = random.uniform(0, 1)
             self.influencia = random.uniform(1,3)
